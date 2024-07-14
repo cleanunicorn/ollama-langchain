@@ -1,9 +1,9 @@
 import subprocess
+from textwrap import dedent
 import click
 from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
-from textwrap import dedent
 
 
 def get_git_diff():
@@ -17,7 +17,7 @@ def get_git_diff():
 
 
 def generate_commit_message(diff):
-    llm = ChatOllama(model="starcoder2:15b")
+    llm = ChatOllama(model="lexi-llama3:8b", timeout=10, num_ctx=8192, format="json")
 
     prompt = PromptTemplate(
         input_variables=["diff"],
@@ -27,12 +27,11 @@ def generate_commit_message(diff):
         The message should describe all of the changes and their purpose. 
         The message should have a type, an optional scope, and a description.
         Types include: feat, fix, docs, style, refactor, perf, test, chore.
-        The output should only contain the output and nothing else.
 
         Git Diff:
+        ```diff
         {diff}
-
-        Commit Message:
+        ```
         """
         ),
     )
@@ -54,10 +53,20 @@ def main(preview):
         click.echo(diff or "No changes detected.")
         return
 
-    commit_message = generate_commit_message(diff)
+    while True:
+        commit_message = generate_commit_message(diff)
 
-    click.echo("Generated commit message:")
-    click.echo(commit_message)
+        click.echo("Generated commit message:")
+        click.echo("---")
+        click.echo(commit_message)
+        click.echo("---")
+
+        regenerate = click.confirm(
+            "Do you want to generate a different commit message?", default=True
+        )
+
+        if regenerate is False:
+            break
 
     if preview:
         click.echo("Preview mode: No changes committed.")
